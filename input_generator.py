@@ -412,197 +412,8 @@ def path_drive_car_to_homes(G, H, s):
         total_path.extend(path[1:])
     return total_path
 
-def create_output_file_everyone_walks(G, H, s):
-    n = len(G.nodes())
-    path = [s]
-    dropoff_mapping = {s: list(H)}
-    path_to_file = './' + str(n) + '.out'
-    list_locations = [str(i) for i in range(n)]
-    convertToFile(path, dropoff_mapping, path_to_file, list_locations)
-
 # returns path of car
 # D is a set of dropoff locations
-def create_and_solve_lp(G, D, s):
-    def subtourelim(model, where):
-      if where == GRB.callback.MIPSOL:
-        selected = []
-        # make a list of edges selected in the solution
-        for i in range(n):
-          sol = model.cbGetSolution([model._vars[i,j] for j in range(n)])
-          selected += [(i,j) for j in range(n) if sol[j] > 0.5]
-        # find the shortest cycle in the selected edge list
-        tour = subtour(selected)
-        if len(tour) < n:
-          # add a subtour elimination constraint
-          expr = 0
-          for i in range(len(tour)):
-            for j in range(i+1, len(tour)):
-              expr += model._vars[tour[i], tour[j]]
-          model.cbLazy(expr <= len(tour)-1)
-
-    def subtour(edges):
-      visited = [False]*n
-      cycles = []
-      lengths = []
-      selected = [[] for i in range(n)]
-      for x,y in edges:
-        selected[x].append(y)
-      while True:
-        current = visited.index(False)
-        thiscycle = [current]
-        while True:
-          visited[current] = True
-          neighbors = [x for x in selected[current] if not visited[x]]
-          if len(neighbors) == 0:
-            break
-          current = neighbors[0]
-          thiscycle.append(current)
-        cycles.append(thiscycle)
-        lengths.append(len(thiscycle))
-        if sum(lengths) == n:
-          break
-      return cycles[lengths.index(min(lengths))]
-
-    m = Model()
-    # Create a new "graph" with only home nodes and shortest distance between home nodes
-    new_nodes = list(D)
-    new_nodes.append(s)
-    new_nodes.sort()
-    new_edges = {}
-    n = len(new_nodes)
-    for i in range(n):
-        for j in range(i + 1):
-            node_1, node_2 = new_nodes[i], new_nodes[j]
-            path = nx.shortest_path(G, source=node_1, target=node_2, weight='weight')
-            path_length = nx.shortest_path_length(G, source=node_1, target=node_2, weight='weight')
-            key = str(node_1) + "," + str(node_2)
-            new_edges[key] = (path, path_length)
-    #for edge, path_info in new_edges.items():
-    #    print(edge + ": " + str(path_info))
-
-    # Create binary variables for each edge
-    vars = {}
-    for i in range(n):
-        for j in range(i + 1):
-            node_1, node_2 = str(new_nodes[i]), str(new_nodes[j])
-            key = node_1 + "," + node_2
-            vars[i,j] = m.addVar(obj=new_edges[key][1], vtype = GRB.BINARY, name="e"+node_1+"_"+node_2)
-            vars[j,i] = vars[i,j]
-    m.update()
-    # add constraint for no repeated vertices
-    for i in range(n):
-        m.addConstr(quicksum(vars[i,j] for j in range(n)) == 2)
-        vars[i,i].ub = 0
-    m.update()
-    # perform LP operations
-    m._vars = vars
-    m.params.LazyConstraints = 1
-    print(n)
-    m.optimize(subtourelim)
-    solution = m.getAttr('x', vars)
-    selected = [(i,j) for i in range(n) for j in range(n) if solution[i,j] > 0.5]
-    # Find path to edges
-    adj_edge_list = {v:[] for v in new_nodes}
-    for edge in selected:
-        index_1, index_2 = edge[0], edge[1]
-        u, v = new_nodes[index_1], new_nodes[index_2]
-        adj_edge_list[u].append(v)
-
-#    for key, value in adj_edge_list.items():
-#        print(str(key) + ": " + str(value))
-
-    def dfs(u):
-        visited_set.add(u)
-        visited_list.append(u)
-        for v in adj_edge_list[u]:
-            if v not in visited_set:
-                dfs(v)
-
-    visited_set = set()
-    visited_list = []
-    dfs(s)
-    visited_list.append(s)
-
-    tsp_path = get_edges_from_path(visited_list)
-    total_path = [s]
-    for e in tsp_path:
-        node_1, node_2 = e
-        key = str(node_1) + "," + str(node_2)
-        if key in new_edges:
-            path_1_to_2 = new_edges[key][0][1:]
-            total_path.extend(path_1_to_2)
-        else:
-            key = str(node_2) + "," + str(node_1)
-            path_1_to_2 = new_edges[key][0][:-1]
-            path_2_to_1 = path_1_to_2[::-1]
-            total_path.extend(path_2_to_1)
-
-    return total_path
-
-# Takes a car cycle and a list of homes and and iteratively removes two-cycles if it improves cost
-def remove_two_cycles_from_path(path, homes, G):
-    new_path = path
-    dropoff_locations = {h: [h] for h in homes}
-    best_solution = (list(new_path), dict(dropoff_locations))
-    change_needed = True
-    # outer loop decides if it should keep iterating to remove two cycles
-    while change_needed:
-        change_needed = False
-        path = new_path
-        new_path = []
-        i = 0
-        # inner loop removes all two-cycles for this iteration
-        while i < len(path) - 2:
-            if path[i] == path[i + 2]:
-                change_needed = True
-                home = path[i + 1]
-                if path[i] in dropoff_locations:
-                    dropoff_locations[path[i]] = dropoff_locations[path[i]] + list(dropoff_locations[home])
-                    del dropoff_locations[home]
-                else:
-                    dropoff_locations[path[i]] = list(dropoff_locations[home])
-                    del dropoff_locations[home]
-                if not new_path or new_path[-1] != path[i]:
-                    new_path.append(path[i])
-                i += 2
-            else:
-                if not new_path or new_path[-1] != path[i]:
-                    new_path.append(path[i])
-                i += 1
-        if len(path) >= 3 and path[-1] != path[-3]:
-            new_path.append(path[-2])
-            new_path.append(path[-1])
-        # we will no longer continue if the keeping the two-cycles on the previous iteration is more efficient
-        if cost_of_solution(G, new_path, dropoff_locations) >= cost_of_solution(G, best_solution[0], best_solution[1]):
-            return best_solution
-        best_solution = list(new_path), dict(dropoff_locations)
-        # optional print statements
-       #  print(new_path)
-        # for location, dropoffs in dropoff_locations.items():
-         #   print(str(location) + ": " + str(dropoffs))
-
-    return new_path, dropoff_locations
-
-
-# uses ILP to find the shortest cost of visiting all homes, and then removes all two cycles
-def efficient_drive_all_homes(G, H, s):
-
-    total_path = create_and_solve_lp(G, H, s)
-    new_path, dropoff_locations = remove_two_cycles_from_path(total_path, H, G)
-
-    dropoff_set = set(dropoff_locations.keys())
-    # new_path = create_and_solve_lp(G, dropoff_set, s)
-
-    # create output file
-    n = len(G.nodes())
-    # new_path = total_path
-    path = new_path
-    # dropoff_locations = {h: [h] for h in H}
-    dropoff_mapping = dropoff_locations
-    path_to_file = './' + str(n) + '.out'
-    list_locations = [str(i) for i in range(n)]
-    convertToFile(path, dropoff_mapping, path_to_file, list_locations)
-
 
 """
 FUNCTIONS FOR USER TO CALL
@@ -622,7 +433,7 @@ def create_fifty_files():
     #create_output_file_everyone_walks(G, H, s)
     efficient_drive_all_homes(G, H, s)
     #validate_input('./50.in')
-    validate_output('./50.in', './50.out')
+    # validate_output('./50.in', './50.out')
 
 def create_hundred_files():
     G, H, s = create_hundred_graph()
@@ -632,7 +443,7 @@ def create_hundred_files():
     # create_output_file_everyone_walks(G, H, s)
     efficient_drive_all_homes(G, H, s)
     # validate_input('./100.in')
-    validate_output('./100.in', './100.out')
+    # validate_output('./100.in', './100.out')
 
 def create_two_hundred_files():
     G, H, s = create_two_hundred_graph()
@@ -642,10 +453,10 @@ def create_two_hundred_files():
     create_output_file_everyone_walks(G, H, s)
     # efficient_drive_all_homes(G, H, s)
     # validate_input('./200.in')
-    validate_output('./200.in', './200.out')
+    # validate_output('./200.in', './200.out')
 
-create_fifty_files()
-create_hundred_files()
+# create_fifty_files()
+# create_hundred_files()
 # create_two_hundred_files()  
 
 
