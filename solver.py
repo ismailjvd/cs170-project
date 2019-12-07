@@ -8,7 +8,6 @@ from gurobipy import *
 import math
 
 from student_utils import *
-from output_validator import *
 """
 ======================================================================
   Complete the following function.
@@ -241,13 +240,12 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
         naive_path, naive_dropoffs = create_output_file_everyone_walks(G, home_indices, start_index)
         cost_b, message_b = cost_of_solution(G, naive_path, naive_dropoffs)
         if cost_b < cost_a:
-            cost_a, path, dropoffs, message_a = cost_b, naive_path, naive_dropoffs, message_b
+            path, dropoffs, message_a = naive_path, naive_dropoffs, message_b
         print(message_a)
     except:
         print("An exception occurred with params {}".format(str(params)))
         path, dropoffs = create_output_file_everyone_walks(G, home_indices, start_index)
-        cost_a = cost_of_solution(G, path, dropoffs)
-    return path, dropoffs, cost_a
+    return path, dropoffs
     pass
 
 """
@@ -283,28 +281,24 @@ def solve_from_file(input_file, output_directory, params=[]):
 
     input_data = utils.read_file(input_file)
     num_of_locations, num_houses, list_locations, list_houses, starting_car_location, adjacency_matrix = data_parser(input_data)
-    car_path, drop_offs, cost_a = solve(list_locations, list_houses, starting_car_location, adjacency_matrix, params=params)
+    car_path, drop_offs = solve(list_locations, list_houses, starting_car_location, adjacency_matrix, params=params)
 
     basename, filename = os.path.split(input_file)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
     output_file = utils.input_to_output(input_file, output_directory)
 
-    error, cost, message = validate_output(input_file, output_file)
-    print(cost)
-    if isinstance(cost_a, float) and isinstance(cost, float) and cost_a < cost:
-        convertToFile(car_path, drop_offs, output_file, list_locations)
+    convertToFile(car_path, drop_offs, output_file, list_locations)
 
 
 def solve_all(input_directory, output_directory, params=[]):
     input_files = utils.get_files_with_extension(input_directory, 'in')
 
     for input_file in input_files:
-        
-        basename, filename = os.path.split(input_file)
-        if '200' not in filename:
-            continue
         """
+        basename, filename = os.path.split(input_file)
+        if '200' in filename:
+            continue
         group, type = filename.split("_")
         if int(group) >= 10:
             continue

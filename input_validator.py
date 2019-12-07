@@ -35,7 +35,6 @@ def tests(input_file, params=[]):
     file_basename = os.path.basename(input_file)
 
     # check name constraints
-    """
     if file_basename not in VALID_FILENAMES:
         message += f'Your file is named {file_basename}. The allowed file names are: {RANGE_OF_INPUT_SIZES}.\n'
         error = True
@@ -48,7 +47,7 @@ def tests(input_file, params=[]):
     if not all(name.isalnum() and len(name) <= MAX_NAME_LENGTH for name in list_locations):
         message += f'One or more of the names of your locations are either not alphanumeric or are above the max length of {MAX_NAME_LENGTH}.\n'
         error = True
-    """
+
     # check counts
     if len(list_locations) != num_of_locations:
         message += f'The number of locations you listed ({len(list_locations)}) differs from the number you gave on the first line ({num_of_locations}).\n'
