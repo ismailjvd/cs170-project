@@ -1,5 +1,5 @@
 # Released to students
-
+import os
 import sys
 sys.path.append('..')
 sys.path.append('../..')
@@ -28,18 +28,26 @@ def validate_output(input_file, output_file, params=[]):
 def validate_all_outputs(input_directory, output_directory, params=[]):
     input_files = utils.get_files_with_extension(input_directory, '.in')
     output_files = utils.get_files_with_extension(output_directory, '.out')
+    for file in output_files:
+        print(file)
 
+    output_directory += '/'
     all_results = []
+    string = ''
     for input_file in input_files:
+        basename, filename = os.path.split(input_file)
+        if '200' in filename:
+            continue
         output_file = utils.input_to_output(input_file, output_directory)
         print(input_file, output_file)
-        if os.path.basename(output_file) not in output_files:
+        if output_file not in output_files:
             print(f'No corresponding .out file for {input_file}')
             results = (None, None, f'No corresponding .out file for {input_file}')
         else:
             results = validate_output(input_file, output_file, params=params)
-
+        string += filename + " " + results[2] + "\n"
         all_results.append((input_file, results))
+    utils.write_to_file('validations.out', string)
     return all_results
 
 
