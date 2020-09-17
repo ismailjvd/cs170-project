@@ -17,6 +17,6 @@ A few additional steps before the code can be run:
 1. Install the Python Interface for Gurobi. This is most easily achieved by installing Anaconda (a version compatible with Python 3.7), and using the Anaconda terminal to install Gurobi (instructions can be found online).
 1. Make sure in the Python / Conda environment being used to run the code the appropriate packages used for the code are installed
 1. Run the solver on an input from the command line 
-  1. python solver.py [path-to-input-file] [output-directory]
-  1. python solver.py --all [path-to-input-directory] [output-directory]
+    1. python solver.py [path-to-input-file] [output-directory]
+    1. python solver.py --all [path-to-input-directory] [output-directory]
 
